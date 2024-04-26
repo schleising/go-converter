@@ -59,16 +59,14 @@ func main() {
 			select {
 			case progress, ok := <-ffmpeg.Progress:
 				if !ok {
-					fmt.Println("Progress channel closed")
 					return
 				}
 				fmt.Println(progress)
 			case err, ok := <-ffmpeg.Error:
 				if !ok {
-					fmt.Println("Error channel closed")
 					return
 				}
-				fmt.Println(err)
+				fmt.Println("Parsing Error:", err)
 			}
 		}
 	}()
@@ -78,7 +76,9 @@ func main() {
 
 	// Check for errors
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error Running Process:", err)
+	} else {
+		fmt.Println("Conversion Complete")
 	}
 
 	// Wait for the ffmpeg process to finish
