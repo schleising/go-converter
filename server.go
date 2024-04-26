@@ -44,6 +44,9 @@ func NewServer() *Server {
 			return
 		}
 
+		// Set the content type header to application/json
+		w.Header().Set("Content-Type", "application/json")
+
 		// Write a response
 		w.Write(progressBytes)
 	})
