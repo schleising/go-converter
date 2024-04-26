@@ -44,10 +44,13 @@ func main() {
 		},
 	)
 
+	// Check for errors
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 
+	// Create a goroutine to listen for progress and errors
 	go func() {
 		for {
 			select {
@@ -67,9 +70,14 @@ func main() {
 		}
 	}()
 
+	// Start the ffmpeg process
 	err = ffmpeg.Start()
 
+	// Check for errors
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	// Wait for the ffmpeg process to finish
+	<-ffmpeg.Done
 }
