@@ -20,6 +20,9 @@ func main() {
 	// Create a signal channel
 	signalChannel := make(chan os.Signal, 1)
 
+	// Defer the closing of the signal channel
+	defer close(signalChannel)
+
 	// Notify the signal channel of any interrupt signals
 	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGTERM)
 
