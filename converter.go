@@ -35,6 +35,12 @@ func main() {
 		cancelFunc()
 	}()
 
+	// Create a new server
+	server := NewServer()
+
+	// Start the server
+	server.Start()
+
 	// Create a new Ffmpeg instance
 	ffmpeg, err := go_ffmpeg.NewFfmpeg(
 		ctx,
@@ -55,13 +61,20 @@ func main() {
 
 	// Create a goroutine to listen for progress and errors
 	go func() {
+		// Create a progress and ok variable
+		var progress go_ffmpeg.Progress
+		var ok bool
+
 		for {
 			select {
-			case progress, ok := <-ffmpeg.Progress:
+			// Listen for progress, requests, and errors
+			case progress, ok = <-ffmpeg.Progress:
 				if !ok {
 					return
 				}
-				fmt.Println(progress)
+			case <-server.requestChannel:
+				// Send the progress information
+				server.progressChannel <- progress
 			case err, ok := <-ffmpeg.Error:
 				if !ok {
 					return
@@ -79,6 +92,14 @@ func main() {
 		fmt.Println("Error Running Process:", err)
 	} else {
 		fmt.Println("Conversion Complete")
+	}
+
+	// Stop the server
+	err = server.Stop()
+
+	// Check for errors
+	if err != nil {
+		fmt.Println("Error Stopping Server:", err)
 	}
 
 	// Wait for the ffmpeg process to finish
