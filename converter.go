@@ -3,37 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/schleising/go-ffmpeg"
 )
 
-func main() {
+func convert(inputFile string) error {
 	// Create a context with a cancel function
 	ctx, cancelFunc := context.WithCancel(context.Background())
 
 	// Defer the cancel function
 	defer cancelFunc()
-
-	// Create a signal channel
-	signalChannel := make(chan os.Signal, 1)
-
-	// Defer the closing of the signal channel
-	defer close(signalChannel)
-
-	// Notify the signal channel of any interrupt signals
-	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGTERM)
-
-	// Create a goroutine to listen for signals
-	go func() {
-		// Wait for a signal
-		<-signalChannel
-
-		// Cancel the context
-		cancelFunc()
-	}()
 
 	// Create a new server
 	server := NewServer()
@@ -44,8 +23,7 @@ func main() {
 	// Create a new Ffmpeg instance
 	ffmpeg, err := go_ffmpeg.NewFfmpeg(
 		ctx,
-		"/Users/steve/Downloads/TestInput.mp4",
-		"/Users/steve/Downloads/Converted/TestOutput.mp4",
+		inputFile,
 		[]string{
 			"-c:v", "libx264",
 			"-c:a", "copy",
@@ -55,8 +33,7 @@ func main() {
 
 	// Check for errors
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
 	// Create a goroutine to listen for progress and errors
@@ -89,9 +66,7 @@ func main() {
 
 	// Check for errors
 	if err != nil {
-		fmt.Println("Error Running Process:", err)
-	} else {
-		fmt.Println("Conversion Complete")
+		return err
 	}
 
 	// Stop the server
@@ -99,9 +74,12 @@ func main() {
 
 	// Check for errors
 	if err != nil {
-		fmt.Println("Error Stopping Server:", err)
+		return err
 	}
 
 	// Wait for the ffmpeg process to finish
 	<-ffmpeg.Done
+
+	// Return nil
+	return nil
 }
