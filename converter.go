@@ -57,8 +57,10 @@ func (converter *Converter) convert() error {
 
 			// Check if the file size has changed
 			if fileInfo.Size() != fileSize {
-				// Update the file size
-				fileSize = fileInfo.Size()
+				if fileInfo.Size() != 0 {
+					// Update the file size
+					fileSize = fileInfo.Size()
+				}
 
 				// Sleep for 100 milliseconds
 				time.Sleep(100 * time.Millisecond)
