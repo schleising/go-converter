@@ -32,6 +32,9 @@ func main() {
 				// Send an empty progress struct to indicate that the conversion is complete
 				progressChannel <- go_ffmpeg.Progress{}
 			default:
+				// Print a message to indicate that the conversion has started
+				fmt.Println("Converting file: ", job.inputFile)
+
 				// Convert the file
 				err := job.convert()
 
