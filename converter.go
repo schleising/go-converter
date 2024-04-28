@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/schleising/go-ffmpeg"
 )
@@ -38,6 +40,35 @@ func NewConverter(inputFile string, progressChannel chan go_ffmpeg.Progress, ctx
 
 // Convert a file using ffmpeg
 func (converter *Converter) convert() error {
+	// Wait for the file to complete copying before starting the conversion
+	var fileSize int64 = -1
+	CopyLoop:
+	for {
+		select {
+		case <-time.After(5 * time.Minute):
+			// Return an error if the file copy times out
+			return fmt.Errorf("file copy timed out")
+		default:
+			// Get the file info
+			fileInfo, err := os.Stat(converter.inputFile)
+			if err != nil {
+				return err
+			}
+
+			// Check if the file size has changed
+			if fileInfo.Size() != fileSize {
+				// Update the file size
+				fileSize = fileInfo.Size()
+
+				// Sleep for 100 milliseconds
+				time.Sleep(100 * time.Millisecond)
+			} else {
+				// Break out of the loop as the file has finished copying
+				break CopyLoop
+			}
+		}
+	}
+
 	// Create a new Ffmpeg instance
 	ffmpeg, err := go_ffmpeg.NewFfmpeg(
 		converter.ctx,
