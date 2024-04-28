@@ -99,14 +99,8 @@ func main() {
 		// Check for new files
 		// If a new file is found, send the filename to the filename channel
 		// If no new files are found, sleep for 100 milliseconds
-		homeFolder, err := os.UserHomeDir()
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
 		// Get the Downloads directory
-		directory := filepath.Join(homeFolder, "Downloads")
+		directory := "/Conversions"
 
 		// Get a list of files in the directory with the extensions .mp4, .mkv, or .avi
 		newFiles, err := filepath.Glob(filepath.Join(directory, "*.*"))

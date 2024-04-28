@@ -1,0 +1,10 @@
+services:
+  converter:
+    build: converter
+    ports:
+      - "8080:8080"
+    volumes:
+      - ~/Downloads/Conversions:/Conversions:rw
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
