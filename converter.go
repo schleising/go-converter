@@ -7,17 +7,41 @@ import (
 	"github.com/schleising/go-ffmpeg"
 )
 
-func convert(inputFile string, progressChannel chan go_ffmpeg.Progress) error {
-	// Create a context with a cancel function
-	ctx, cancelFunc := context.WithCancel(context.Background())
+// Structure to hold a converter job instance
+type Converter struct {
+	// File to convert
+	inputFile string
 
-	// Defer the cancel function
-	defer cancelFunc()
+	// Channel to send progress information
+	progressChannel chan go_ffmpeg.Progress
 
+	// Context for the converter job
+	ctx context.Context
+
+	// Cancel function for the converter job
+	cancelFunc context.CancelFunc
+}
+
+// Create a new converter instance
+func NewConverter(inputFile string, progressChannel chan go_ffmpeg.Progress, ctx context.Context, cancelFunc context.CancelFunc) *Converter {
+	// Create a new converter instance
+	converter := Converter{
+		inputFile:       inputFile,
+		progressChannel: progressChannel,
+		ctx:             ctx,
+		cancelFunc:      cancelFunc,
+	}
+
+	// Return the converter instance
+	return &converter
+}
+
+// Convert a file using ffmpeg
+func (converter *Converter) convert() error {
 	// Create a new Ffmpeg instance
 	ffmpeg, err := go_ffmpeg.NewFfmpeg(
-		ctx,
-		inputFile,
+		converter.ctx,
+		converter.inputFile,
 		[]string{
 			"-c:v", "libx264",
 			"-c:a", "copy",
@@ -39,7 +63,7 @@ func convert(inputFile string, progressChannel chan go_ffmpeg.Progress) error {
 				if !ok {
 					return
 				}
-				progressChannel <- progress
+				converter.progressChannel <- progress
 			case err, ok := <-ffmpeg.Error:
 				if !ok {
 					return

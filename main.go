@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -12,11 +13,8 @@ import (
 )
 
 func main() {
-	// Create a channel to request a file to convert
-	requestChannel := make(chan struct{})
-
-	// Create a channel to receive the filename
-	filenameChannel := make(chan string)
+	// Create a channel to receive the converter jobs
+	converterJobChannel := make(chan Converter, 100)
 
 	// Create a progress channel
 	progressChannel := make(chan go_ffmpeg.Progress)
@@ -24,32 +22,43 @@ func main() {
 	// Create a goroutine to convert files
 	go func() {
 		// Loop forever
-		for {
-			// Request a file
-			requestChannel <- struct{}{}
+		for job := range converterJobChannel {
+			// Check if the context has been cancelled
+			select {
+			case <-job.ctx.Done():
+				// Print a message to indicate that the conversion has been cancelled
+				fmt.Println("Conversion cancelled: ", job.inputFile)
 
-			// Wait for a filename
-			filename, ok := <-filenameChannel
+				// Send an empty progress struct to indicate that the conversion is complete
+				progressChannel <- go_ffmpeg.Progress{}
+			default:
+				// Convert the file
+				err := job.convert()
 
-			// Exit the loop if the channel is closed
-			if !ok {
-				break
+				// Check for errors
+				if err != nil {
+					// Print an error message
+					fmt.Println("Error converting file: ", job.inputFile)
+					fmt.Println(err)
+				} else {
+					// Print a message to indicate that the conversion is complete
+					fmt.Println("Conversion complete: ", job.inputFile)
+
+					// Call the cancel function
+					job.cancelFunc()
+
+					// Send an empty progress struct to indicate that the conversion is complete
+					progressChannel <- go_ffmpeg.Progress{}
+				}
 			}
-
-			// Convert the file
-			err := convert(filename, progressChannel)
-
-			// Check for errors
-			if err != nil {
-				fmt.Println(err)
-			} else {
-				fmt.Println("Conversion complete: ", filename)
-			}
-
-			// Send an empty progress struct to indicate that the conversion is complete
-			progressChannel <- go_ffmpeg.Progress{}
 		}
+
+		// Close the progress channel
+		close(progressChannel)
 	}()
+
+	// Create an empty map for Converter jobs
+	jobs := make(map[string]*Converter)
 
 	// Create a channel to listen for notifications
 	notifyChannel := make(chan os.Signal, 1)
@@ -62,14 +71,13 @@ func main() {
 		// Wait for a notification
 		<-notifyChannel
 
-		// Close the request channel
-		close(requestChannel)
+		// Cancel all the jobs
+		for _, job := range jobs {
+			job.cancelFunc()
+		}
 
-		// Close the filename channel
-		close(filenameChannel)
-
-		// Close the progress channel
-		close(progressChannel)
+		// Close the converter job channel
+		close(converterJobChannel)
 	}()
 
 	// Create a new server
@@ -77,12 +85,6 @@ func main() {
 
 	// Start the server
 	server.Start()
-
-	// Boolean to indicate that a file has been requested
-	fileRequested := false
-
-	// Create an empty set for files witha  boolean to indicate whether the file has been sent to the filename channel
-	files := make(map[string]bool)
 
 	// Create a progress and ok variable
 	var progress go_ffmpeg.Progress
@@ -118,27 +120,36 @@ func main() {
 			}
 
 			// Check if the file is already in the set
-			if _, ok := files[newFile]; !ok {
-				// Add the file to the set
-				files[newFile] = false
+			if _, ok := jobs[newFile]; !ok {
+				// Create a context with a cancel function
+				ctx, cancel := context.WithCancel(context.Background())
+
+				// Create a new Converter instance
+				converter := NewConverter(newFile, progressChannel, ctx, cancel)
+
+				// Add the Converter instance to the map
+				jobs[newFile] = converter
+
+				// Send the Converter instance to the Converter channel
+				converterJobChannel <- *converter
 			}
 		}
 
 		// Remove files that no longer exist
-		for file := range files {
+		for file := range jobs {
 			// Check if the file exists
 			if _, err := os.Stat(file); os.IsNotExist(err) {
-				// Remove the file from the set
-				delete(files, file)
+				// Cancel the context
+				jobs[file].cancelFunc()
+
+				// Remove the file from the map
+				delete(jobs, file)
 			}
 		}
 
 		// Check whether there is a request for a file
 		select {
 		// Listen for progress, requests, and errors
-		case <-requestChannel:
-			// Set the fileRequested boolean to true
-			fileRequested = true
 		case progress, ok = <-progressChannel:
 			if !ok {
 				closing = true
@@ -153,27 +164,14 @@ func main() {
 
 		// Check if the server is closing
 		if closing {
-			break
-		}
-
-		// Check if a file has been requested
-		if fileRequested {
-			// If there is a request, send a filename that has not already been sent to the filename channel
-			for file, sent := range files {
-				if !sent {
-					// Send the filename to the filename channel
-					filenameChannel <- file
-
-					// Mark the file as sent
-					files[file] = true
-
-					// Reset the fileRequested boolean
-					fileRequested = false
-
-					// Break out of the loop
-					break
-				}
+			// Check if there are any requests for progress information before closing
+			select {
+			case <-server.requestChannel:
+				// Send an empty progress struct
+				server.progressChannel <- go_ffmpeg.Progress{}
+			default:
 			}
+			break
 		}
 	}
 
@@ -182,6 +180,7 @@ func main() {
 
 	// Check for errors
 	if err != nil {
+		fmt.Println("Error stopping server")
 		fmt.Println(err)
 	}
 }
