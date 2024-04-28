@@ -7,18 +7,12 @@ import (
 	"github.com/schleising/go-ffmpeg"
 )
 
-func convert(inputFile string) error {
+func convert(inputFile string, progressChannel chan go_ffmpeg.Progress) error {
 	// Create a context with a cancel function
 	ctx, cancelFunc := context.WithCancel(context.Background())
 
 	// Defer the cancel function
 	defer cancelFunc()
-
-	// Create a new server
-	server := NewServer()
-
-	// Start the server
-	server.Start()
 
 	// Create a new Ffmpeg instance
 	ffmpeg, err := go_ffmpeg.NewFfmpeg(
@@ -38,20 +32,14 @@ func convert(inputFile string) error {
 
 	// Create a goroutine to listen for progress and errors
 	go func() {
-		// Create a progress and ok variable
-		var progress go_ffmpeg.Progress
-		var ok bool
-
 		for {
 			select {
 			// Listen for progress, requests, and errors
-			case progress, ok = <-ffmpeg.Progress:
+			case progress, ok := <-ffmpeg.Progress:
 				if !ok {
 					return
 				}
-			case <-server.requestChannel:
-				// Send the progress information
-				server.progressChannel <- progress
+				progressChannel <- progress
 			case err, ok := <-ffmpeg.Error:
 				if !ok {
 					return
@@ -63,14 +51,6 @@ func convert(inputFile string) error {
 
 	// Start the ffmpeg process
 	err = ffmpeg.Start()
-
-	// Check for errors
-	if err != nil {
-		return err
-	}
-
-	// Stop the server
-	err = server.Stop()
 
 	// Check for errors
 	if err != nil {

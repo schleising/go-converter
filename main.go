@@ -3,8 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
+
+	"github.com/schleising/go-ffmpeg"
 )
 
 func main() {
@@ -14,6 +18,9 @@ func main() {
 	// Create a channel to receive the filename
 	filenameChannel := make(chan string)
 
+	// Create a progress channel
+	progressChannel := make(chan go_ffmpeg.Progress)
+
 	// Create a goroutine to convert files
 	go func() {
 		// Loop forever
@@ -22,10 +29,15 @@ func main() {
 			requestChannel <- struct{}{}
 
 			// Wait for a filename
-			filename := <-filenameChannel
+			filename, ok := <-filenameChannel
+
+			// Exit the loop if the channel is closed
+			if !ok {
+				break
+			}
 
 			// Convert the file
-			err := convert(filename)
+			err := convert(filename, progressChannel)
 
 			// Check for errors
 			if err != nil {
@@ -33,14 +45,49 @@ func main() {
 			} else {
 				fmt.Println("Conversion complete: ", filename)
 			}
+
+			// Send an empty progress struct to indicate that the conversion is complete
+			progressChannel <- go_ffmpeg.Progress{}
 		}
 	}()
+
+	// Create a channel to listen for notifications
+	notifyChannel := make(chan os.Signal, 1)
+
+	// Notify the channel on interrupt or terminate
+	signal.Notify(notifyChannel, syscall.SIGINT, syscall.SIGTERM)
+
+	// Create a goroutine to listen for notifications
+	go func() {
+		// Wait for a notification
+		<-notifyChannel
+
+		// Close the request channel
+		close(requestChannel)
+
+		// Close the filename channel
+		close(filenameChannel)
+
+		// Close the progress channel
+		close(progressChannel)
+	}()
+
+	// Create a new server
+	server := NewServer()
+
+	// Start the server
+	server.Start()
 
 	// Boolean to indicate that a file has been requested
 	fileRequested := false
 
 	// Create an empty set for files witha  boolean to indicate whether the file has been sent to the filename channel
 	files := make(map[string]bool)
+
+	// Create a progress and ok variable
+	var progress go_ffmpeg.Progress
+	var ok bool
+	closing := false
 
 	// Poll the directory for new files
 	for {
@@ -88,12 +135,25 @@ func main() {
 
 		// Check whether there is a request for a file
 		select {
-		case <- requestChannel:
+		// Listen for progress, requests, and errors
+		case <-requestChannel:
 			// Set the fileRequested boolean to true
 			fileRequested = true
+		case progress, ok = <-progressChannel:
+			if !ok {
+				closing = true
+			}
+		case <-server.requestChannel:
+			// Send the progress information
+			server.progressChannel <- progress
 		default:
 			// Sleep for 100 milliseconds
 			time.Sleep(100 * time.Millisecond)
+		}
+
+		// Check if the server is closing
+		if closing {
+			break
 		}
 
 		// Check if a file has been requested
@@ -115,5 +175,13 @@ func main() {
 				}
 			}
 		}
+	}
+
+	// Stop the server
+	err := server.Stop()
+
+	// Check for errors
+	if err != nil {
+		fmt.Println(err)
 	}
 }
