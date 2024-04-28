@@ -12,7 +12,13 @@ import (
 	"github.com/schleising/go-ffmpeg"
 )
 
+// Version of the converter
+var version string = "0.1.0"
+
 func main() {
+	// Print the version
+	fmt.Println("Converter Version: ", version)
+
 	// Create a channel to receive the converter jobs
 	converterJobChannel := make(chan Converter, 100)
 
