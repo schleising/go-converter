@@ -8,7 +8,7 @@ WORKDIR /app
 COPY src/* /app/
 
 # Build the Go app
-RUN CGO_ENABLED=0 GOOS=linux go build -a -o go-converter .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -a -o go-converter .
 
 # New stage using the ffmpeg image
 FROM linuxserver/ffmpeg:latest
