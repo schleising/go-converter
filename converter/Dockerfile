@@ -7,8 +7,6 @@ WORKDIR /app
 # Copy go mod and sum files
 COPY src/* /app/
 
-RUN ls -la /app
-
 # Build the Go app
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o go-converter .
 
