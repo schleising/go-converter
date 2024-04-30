@@ -62,8 +62,8 @@ func (converter *Converter) convert() error {
 					fileSize = fileInfo.Size()
 				}
 
-				// Sleep for 500 milliseconds
-				time.Sleep(500 * time.Millisecond)
+				// Sleep for 1 second
+				time.Sleep(1 * time.Second)
 			} else {
 				// Break out of the loop as the file has finished copying
 				break CopyLoop
