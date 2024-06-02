@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 
@@ -25,8 +26,9 @@ func main() {
 	// Create a progress channel
 	progressChannel := make(chan go_ffmpeg.Progress)
 
-	// Create a channel to indicate that the application is being terminated
-	terminatedChannel := make(chan struct{})
+	// Create a wait group to wait for the goroutine to finish
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 
 	// Create a goroutine to convert files
 	go func() {
@@ -67,8 +69,8 @@ func main() {
 		// Close the progress channel
 		close(progressChannel)
 
-		// Send a signal to indicate that the channel is closed
-		terminatedChannel <- struct{}{}
+		// Decrement the wait group
+		wg.Done()
 	}()
 
 	// Create an empty map for Converter jobs
@@ -182,8 +184,8 @@ func main() {
 		}
 	}
 
-	// Wait for the signal to close the channel
-	<-terminatedChannel
+	// Wait for the goroutine to finish
+	wg.Wait()
 
 	// Stop the server
 	err := server.Stop()
