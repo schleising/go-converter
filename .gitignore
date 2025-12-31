@@ -22,3 +22,4 @@ go.work
 
 # Executable
 converter/go-converter
+converter/src/go-converter
