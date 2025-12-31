@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"sync"
 	"syscall"
 	"time"
@@ -14,7 +15,14 @@ import (
 )
 
 // Version of the converter
-var version string = "0.1.3"
+var version string = "0.1.4"
+
+// Create a constant list of supported file extensions for all ffmpeg supported formats
+var supportedExtensions = []string{
+	".mp4", ".mkv", ".avi", ".mov", ".flv", ".wmv", ".webm", ".mpg", ".mpeg",
+	".3gp", ".3g2", ".ts", ".m4v", ".f4v", ".rmvb", ".vob", ".ogv", ".divx",
+	".xvid", ".h264", ".h265", ".hevc",
+}
 
 func main() {
 	// Print the version
@@ -110,8 +118,8 @@ func main() {
 
 		// Check for new files
 		for _, newFile := range newFiles {
-			// Check if the file is a .mp4, .mkv, or .avi file
-			if filepath.Ext(newFile) != ".mp4" && filepath.Ext(newFile) != ".mkv" && filepath.Ext(newFile) != ".avi" {
+			// Check if the file is supported by checking its extension
+			if !slices.Contains(supportedExtensions, filepath.Ext(newFile)) {
 				continue
 			}
 
