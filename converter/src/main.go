@@ -15,7 +15,7 @@ import (
 )
 
 // Version of the converter
-var version string = "0.1.4"
+var version string = "0.1.5"
 
 // Create a constant list of supported file extensions for all ffmpeg supported formats
 var supportedExtensions = []string{
@@ -46,13 +46,13 @@ func main() {
 			select {
 			case <-job.ctx.Done():
 				// Print a message to indicate that the conversion has been cancelled
-				fmt.Println("Conversion cancelled:", job.inputFile)
+				fmt.Println("Conversion cancelled")
 
 				// Send an empty progress struct to indicate that the conversion is complete
 				progressChannel <- go_ffmpeg.Progress{}
 			default:
 				// Print a message to indicate that the conversion has started
-				fmt.Println("Converting file:", job.inputFile)
+				fmt.Println("Converting file")
 
 				// Convert the file
 				err := job.convert()
@@ -60,10 +60,10 @@ func main() {
 				// Check for errors
 				if err != nil {
 					// Print an error message
-					fmt.Println("Error converting file:", job.inputFile, err)
+					fmt.Println("Error converting file", err)
 				} else {
 					// Print a message to indicate that the conversion is complete
-					fmt.Println("Conversion complete:", job.inputFile)
+					fmt.Println("Conversion complete")
 
 					// Call the cancel function
 					job.cancelFunc()
@@ -165,7 +165,7 @@ func main() {
 			// Got a signal to close the server
 			// Cancel all the jobs
 			for _, job := range jobs {
-				fmt.Println("Cancelling job:", job.inputFile)
+				fmt.Println("Cancelling job")
 				job.cancelFunc()
 			}
 
