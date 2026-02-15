@@ -15,7 +15,7 @@ import (
 )
 
 // Version of the converter
-var version string = "0.1.5"
+var version string = "0.1.6"
 
 // Create a constant list of supported file extensions for all ffmpeg supported formats
 var supportedExtensions = []string{

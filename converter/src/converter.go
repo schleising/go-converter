@@ -77,7 +77,7 @@ func (converter *Converter) convert() error {
 		converter.inputFile,
 		[]string{
 			"-c:v", "libx264",
-			"-c:a", "copy",
+			"-c:a", "aac",
 			"-c:s", "copy",
 		},
 	)
