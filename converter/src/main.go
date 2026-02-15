@@ -15,7 +15,7 @@ import (
 )
 
 // Version of the converter
-var version string = "0.1.6"
+var version string = "0.1.7"
 
 // Create a constant list of supported file extensions for all ffmpeg supported formats
 var supportedExtensions = []string{
@@ -52,7 +52,7 @@ func main() {
 				progressChannel <- go_ffmpeg.Progress{}
 			default:
 				// Print a message to indicate that the conversion has started
-				fmt.Println("Converting file")
+				fmt.Println("Converting file", len(converterJobChannel), "in queue")
 
 				// Convert the file
 				err := job.convert()
