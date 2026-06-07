@@ -13,7 +13,7 @@ import (
 )
 
 // Version of the converter
-var version string = "0.1.8"
+var version string = "0.1.9"
 
 // Create a constant list of supported file extensions for all ffmpeg supported formats
 var supportedExtensions = []string{
@@ -31,6 +31,7 @@ func main() {
 
 	// Create a progress channel
 	progressChannel := make(chan go_ffmpeg.Progress)
+	queue := &QueueTracker{}
 
 	// Create a wait group to wait for the goroutine to finish
 	wg := sync.WaitGroup{}
@@ -40,36 +41,41 @@ func main() {
 	go func() {
 		// Loop forever
 		for job := range converterJobChannel {
-			// Check if the context has been cancelled
-			select {
-			case <-job.ctx.Done():
-				// Print a message to indicate that the conversion has been cancelled
-				fmt.Println("Conversion cancelled")
+			func(job Converter) {
+				defer queue.Done()
 
-				// Send an empty progress struct to indicate that the conversion is complete
-				progressChannel <- go_ffmpeg.Progress{}
-			default:
-				// Print a message to indicate that the conversion has started
-				fmt.Println("Converting file", len(converterJobChannel), "in queue")
-
-				// Convert the file
-				err := job.convert()
-
-				// Check for errors
-				if err != nil {
-					// Print an error message
-					fmt.Println("Error converting file", err)
-				} else {
-					// Print a message to indicate that the conversion is complete
-					fmt.Println("Conversion complete")
-
-					// Call the cancel function
-					job.cancelFunc()
+				// Check if the context has been cancelled
+				select {
+				case <-job.ctx.Done():
+					// Print a message to indicate that the conversion has been cancelled
+					fmt.Println("Conversion cancelled")
 
 					// Send an empty progress struct to indicate that the conversion is complete
 					progressChannel <- go_ffmpeg.Progress{}
+				default:
+					// Print a message to indicate that the conversion has started
+					fmt.Println("Converting file,", queue.Remaining(), "remaining")
+
+					// Convert the file
+					err := job.convert()
+
+					// Check for errors
+					if err != nil {
+						// Print an error message
+						fmt.Println("Error converting file", err)
+						progressChannel <- go_ffmpeg.Progress{}
+					} else {
+						// Print a message to indicate that the conversion is complete
+						fmt.Println("Conversion complete")
+
+						// Call the cancel function
+						job.cancelFunc()
+
+						// Send an empty progress struct to indicate that the conversion is complete
+						progressChannel <- go_ffmpeg.Progress{}
+					}
 				}
-			}
+			}(job)
 		}
 
 		// Close the progress channel
@@ -122,7 +128,7 @@ func main() {
 				// Add the Converter instance to the map
 				jobs[newFile] = converter
 
-				// Send the Converter instance to the Converter channel
+				queue.Add()
 				converterJobChannel <- *converter
 			}
 		}
@@ -147,8 +153,7 @@ func main() {
 				closing = true
 			}
 		case <-server.requestChannel:
-			// Send the progress information
-			server.progressChannel <- progress
+			server.progressChannel <- newStatus(progress, queue)
 		case <-notifyChannel:
 			// Got a signal to close the server
 			// Cancel all the jobs
@@ -172,8 +177,7 @@ func main() {
 			// Check if there are any requests for progress information before closing
 			select {
 			case <-server.requestChannel:
-				// Send an empty progress struct
-				server.progressChannel <- go_ffmpeg.Progress{}
+				server.progressChannel <- newStatus(go_ffmpeg.Progress{}, queue)
 			default:
 			}
 			break

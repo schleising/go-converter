@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
-
-	"github.com/schleising/go-ffmpeg"
 )
 
 type Server struct {
@@ -17,7 +15,7 @@ type Server struct {
 	requestChannel chan struct{}
 
 	// Channel to recieve progress information
-	progressChannel chan go_ffmpeg.Progress
+	progressChannel chan Status
 }
 
 func NewServer() *Server {
@@ -25,7 +23,7 @@ func NewServer() *Server {
 	requestChannel := make(chan struct{})
 
 	// Create a channel to receive progress information
-	progressChannel := make(chan go_ffmpeg.Progress)
+	progressChannel := make(chan Status)
 
 	// Create a server instance
 	server := Server{}
@@ -84,7 +82,7 @@ func (s *Server) Stop() error {
 	return s.httpServer.Shutdown(ctx)
 }
 
-func (s *Server) getProgress() go_ffmpeg.Progress {
+func (s *Server) getProgress() Status {
 	// Send a request for progress information
 	s.requestChannel <- struct{}{}
 
