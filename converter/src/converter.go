@@ -71,10 +71,15 @@ func (converter *Converter) convert() error {
 		}
 	}
 
-	// Create a new Ffmpeg instance
+	outputFile, err := outputPathForInput(converter.inputFile)
+	if err != nil {
+		return err
+	}
+
 	ffmpeg, err := go_ffmpeg.NewFfmpeg(
 		converter.ctx,
 		converter.inputFile,
+		outputFile,
 		[]string{
 			"-c:v", "libx264",
 			"-c:a", "aac",
@@ -91,7 +96,6 @@ func (converter *Converter) convert() error {
 	go func() {
 		for {
 			select {
-			// Listen for progress, requests, and errors
 			case progress, ok := <-ffmpeg.Progress:
 				if !ok {
 					return
@@ -106,17 +110,9 @@ func (converter *Converter) convert() error {
 		}
 	}()
 
-	// Start the ffmpeg process
-	err = ffmpeg.Start()
-
-	// Check for errors
-	if err != nil {
+	if err := ffmpeg.Start(); err != nil {
 		return err
 	}
 
-	// Wait for the ffmpeg process to finish
-	<-ffmpeg.Done
-
-	// Return nil
-	return nil
+	return ffmpeg.Wait()
 }

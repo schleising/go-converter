@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"slices"
 	"sync"
 	"syscall"
 	"time"
@@ -15,7 +13,7 @@ import (
 )
 
 // Version of the converter
-var version string = "0.1.7"
+var version string = "0.1.8"
 
 // Create a constant list of supported file extensions for all ffmpeg supported formats
 var supportedExtensions = []string{
@@ -106,23 +104,13 @@ func main() {
 		// Check for new files
 		// If a new file is found, send the filename to the filename channel
 		// If no new files are found, sleep for 100 milliseconds
-		// Get the Downloads directory
-		directory := "/Conversions"
-
-		// Get a list of files in the directory with the extensions .mp4, .mkv, or .avi
-		newFiles, err := filepath.Glob(filepath.Join(directory, "*.*"))
+		newFiles, err := discoverVideoFiles()
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		// Check for new files
 		for _, newFile := range newFiles {
-			// Check if the file is supported by checking its extension
-			if !slices.Contains(supportedExtensions, filepath.Ext(newFile)) {
-				continue
-			}
-
 			// Check if the file is already in the set
 			if _, ok := jobs[newFile]; !ok {
 				// Create a context with a cancel function
